@@ -98,13 +98,13 @@ class XmlCsvProcessor:
         with open(levels_path, 'w') as lf, open(names_path, 'w') as nf:
             levels_writer = csv.DictWriter(lf, fieldnames=('id', 'level'))
             levels_writer.writeheader()
-            names_writer = csv.DictWriter(nf, fieldnames=('id', 'name'))
+            names_writer = csv.DictWriter(nf, fieldnames=('id', 'object_name'))
             names_writer.writeheader()
 
             for id_, level, object_ids_names in results:
                 levels_writer.writerow({'id': id_, 'level': level})
                 for name in object_ids_names:
-                    names_writer.writerow({'id': id_, 'name': name})
+                    names_writer.writerow({'id': id_, 'object_name': name})
 
     def _process_single_zip(self, zip_name: str) -> Tuple[str, int, List[str]]:
         zip_path = os.path.join(self._zip_path, zip_name)
