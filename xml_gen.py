@@ -6,11 +6,11 @@ import xml.etree.ElementTree as ET
 from argparse import ArgumentParser
 from multiprocessing import cpu_count
 from multiprocessing.pool import ThreadPool
-from tempfile import NamedTemporaryFile
 from typing import List, Tuple
 from zipfile import ZipFile
 
 DEFAULT_ARC_COUNT = 50
+DEFAULT_ARC_FILES = 100
 DEFAULT_PROCESSES_COUNT = cpu_count()
 
 
@@ -19,22 +19,37 @@ class XmlCsvProcessor:
         self._zip_path = zip_path
         self._csv_path = csv_path
 
-    def gen_xml_archives(self, arc_count: int = DEFAULT_ARC_COUNT) -> None:
+    def gen_xml_archives(self, arc_count: int = DEFAULT_ARC_COUNT,
+                         files_in_arc: int = DEFAULT_ARC_FILES) -> None:
         '''
         Generates archives with XML files
         :param arc_count: number of result archives
+        :param files_in_arc: number of files in one archive
         '''
         if not os.path.exists(self._zip_path):
             os.mkdir(self._zip_path)
 
         for _ in range(arc_count):
-            et = XmlCsvProcessor._gen_single_xml_tree()
-            self._write_xml_archive(et)
+            self._gen_archive(files_in_arc)
+
+    def _gen_archive(self, files_in_arc: int) -> None:
+        rand_zip_path = self._rand_zip_path()
+
+        with ZipFile(rand_zip_path, mode='w') as arc:
+            for i in range(files_in_arc):
+                root = XmlCsvProcessor._gen_single_xml()
+                self._write_xml_archive(root, arc, i)
+
+    def _rand_zip_path(self) -> str:
+        while True:
+            zip_name = XmlCsvProcessor._rand_str() + '.zip'
+            full_zip_path = os.path.join(self._zip_path, zip_name)
+            if not os.path.exists(full_zip_path):
+                return full_zip_path
 
     @staticmethod
-    def _gen_single_xml_tree() -> ET.ElementTree:
+    def _gen_single_xml() -> ET.Element:
         root = ET.Element('root')
-        et = ET.ElementTree(root)
 
         var_id = ET.Element(
             'var', attrib={'name': 'id', 'value': str(uuid.uuid4())})
@@ -52,8 +67,7 @@ class XmlCsvProcessor:
             objs.append(obj)
 
         root.append(objs)
-
-        return et
+        return root
 
     @staticmethod
     def _rand_str() -> str:
@@ -65,22 +79,12 @@ class XmlCsvProcessor:
 
         return ''.join(result)
 
-    def _write_xml_archive(self, et: ET.ElementTree) -> None:
-        ET.indent(et)
+    def _write_xml_archive(self, root: ET.Element, arc: ZipFile, i: int) -> None:
+        xml_str = ET.tostring(root)
+        arc.writestr(f'{i}.xml', xml_str)
 
-        with NamedTemporaryFile(dir=self._zip_path, prefix='',
-                                suffix='.xml') as tmp:
-            tmp_path = tmp.name
-            tmp_basename = os.path.basename(tmp_path)
-            zip_name = tmp_basename.split('.')[0] + '.zip'
-            full_zip_path = os.path.join(self._zip_path, zip_name)
-
-            with ZipFile(full_zip_path, mode='w') as arc:
-                et.write(tmp)
-                tmp.flush()
-                arc.write(tmp_path, arcname=tmp_basename)
-
-    def gen_csv_files(self, processes_count=DEFAULT_PROCESSES_COUNT) -> None:
+    def gen_csv_files(self,
+                      processes_count: int = DEFAULT_PROCESSES_COUNT) -> None:
         '''
         Generates CSV files from prepared XMLs in archives
         :param processes_count: parallelism level
