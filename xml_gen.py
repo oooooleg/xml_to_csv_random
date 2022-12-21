@@ -105,28 +105,33 @@ class XmlCsvProcessor:
             names_writer = csv.DictWriter(nf, fieldnames=('id', 'object_name'))
             names_writer.writeheader()
 
-            for id_, level, object_ids_names in results:
-                levels_writer.writerow({'id': id_, 'level': level})
-                for name in object_ids_names:
-                    names_writer.writerow({'id': id_, 'object_name': name})
+            for res in results:
+                for id_, level, object_ids_names in res:
+                    levels_writer.writerow({'id': id_, 'level': level})
+                    for name in object_ids_names:
+                        names_writer.writerow({'id': id_, 'object_name': name})
 
-    def _process_single_zip(self, zip_name: str) -> Tuple[str, int, List[str]]:
+    def _process_single_zip(self, zip_name: str) -> List[Tuple[str, int, List[str]]]:
         zip_path = os.path.join(self._zip_path, zip_name)
+        result = []
+
         with ZipFile(zip_path) as zip_file:
-            name = zip_file.namelist()[0]
-            buf = zip_file.read(name)
-            root = ET.fromstring(buf.decode())
+            for name in zip_file.namelist():
+                buf = zip_file.read(name)
+                root = ET.fromstring(buf.decode())
 
-        vars = root.findall('var')
-        if vars[0].get('name') == 'id':
-            id_, level = vars[0].get('value'), int(vars[1].get('value'))
-        else:
-            id_, level = vars[1].get('value'), int(vars[0].get('value'))
+                vars = root.findall('var')
+                if vars[0].get('name') == 'id':
+                    id_, level = vars[0].get('value'), int(vars[1].get('value'))
+                else:
+                    id_, level = vars[1].get('value'), int(vars[0].get('value'))
 
-        objects = root.find('objects')
-        object_ids_names = [obj.get('name') for obj in objects]
+                objects = root.find('objects')
+                object_ids_names = [obj.get('name') for obj in objects]
 
-        return id_, level, object_ids_names
+                result.append((id_, level, object_ids_names))
+
+        return result
 
 
 def main():
